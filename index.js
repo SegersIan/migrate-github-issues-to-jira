@@ -11,8 +11,13 @@ async function run(){
 
     console.log(`Issues found :`, issues.length);
 
-    for(let issue of [issues[0]]){
-        await handleIssue(issue);
+    for(let issue of issues){
+        try{
+            await handleIssue(issue);
+        }catch(err){
+            console.error(`Failed to process issue ${issue.html_url}`);
+        }
+      
     }
 
 }
@@ -25,7 +30,24 @@ async function handleIssue(gitHubIssue) {
     const gitHubIssueUrl = gitHubIssue.html_url;
     const issueBody = `${issueContent}\n\n${gitHubIssueUrl}`;
 
-    await jiraCLient.addNewIssue(createJiraIssueBody(issueSummary, issueBody))
+    const newIssueRespons = await jiraCLient.addNewIssue(createJiraIssueBody(issueSummary, issueBody));
+    await commentAndCloseIssue(gitHubIssue.number, `Closing this ticket, tracking has moved to JIRA https://neptune-software-all.atlassian.net/browse/${newIssueRespons.key}`)
+}
+
+async function commentAndCloseIssue(issueId, comment){
+    await gitHubClient.issues.createComment({
+        owner: config.github_owner,
+        repo: config.github_repo,
+        issue_number: issueId,
+        body: comment
+    })
+
+    await gitHubClient.issues.update({
+        owner: config.github_owner,
+        repo: config.github_repo,
+        issue_number: issueId,
+        state: "closed"
+    })
 }
 
 async function fetchAllIssues(){
